@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProfileStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum OutboxEventStatus {
+  PENDING
+  PUBLISHED
+  FAILED
+}
+
+model UserProfile {
+  id          String        @id @default(uuid())
+  username    String        @unique
+  email       String        @unique
+  displayName String
+  avatarUrl   String?
+  status      ProfileStatus @default(ACTIVE)
+  version     Int           @default(1)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("user_profiles")
+}
+
+model OutboxEvent {
+  id          String            @id @default(uuid())
+  aggregateId String
+  type        String
+  payload     Json
+  version     Int
+  status      OutboxEventStatus @default(PENDING)
+  createdAt   DateTime          @default(now())
+  publishedAt DateTime?
+
+  @@index([status, createdAt])
+  @@map("outbox_events")
+}

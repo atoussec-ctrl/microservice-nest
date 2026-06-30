@@ -1,0 +1,53 @@
+enum ProfileStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+type Profile {
+  id: ID!
+  username: String!
+  email: String!
+  displayName: String!
+  avatarUrl: String
+  status: ProfileStatus!
+  version: Int!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type ProfileSearchResult {
+  items: [Profile!]!
+  total: Int!
+}
+
+input CreateProfileInput {
+  username: String!
+  email: String!
+  displayName: String!
+  avatarUrl: String
+}
+
+input UpdateProfileInput {
+  id: ID!
+  version: Int!
+  displayName: String
+  avatarUrl: String
+  status: ProfileStatus
+}
+
+type Query {
+  profile(id: ID!): Profile
+  searchProfiles(
+    query: String
+    status: ProfileStatus
+    limit: Int = 20
+    offset: Int = 0
+  ): ProfileSearchResult!
+}
+
+type Mutation {
+  createProfile(input: CreateProfileInput!): Profile!
+  updateProfile(input: UpdateProfileInput!): Profile!
+  deleteProfile(id: ID!): Boolean!
+}
