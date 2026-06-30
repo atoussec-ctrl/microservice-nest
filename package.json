@@ -1,0 +1,11 @@
+{
+  "name": "microservice-nest",
+  "private": true,
+  "scripts": {
+    "prepare": "husky",
+    "validate": "cd profile-service && npm run lint && npm run build && npm run test:unit && npm run test:integration && npm run test:cov"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}
