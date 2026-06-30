@@ -1,0 +1,11 @@
+export enum ProfileStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  SUSPENDED = 'SUSPENDED',
+}
+
+export enum DomainEventType {
+  PROFILE_CREATED = 'PROFILE_CREATED',
+  PROFILE_UPDATED = 'PROFILE_UPDATED',
+  PROFILE_DELETED = 'PROFILE_DELETED',
+}

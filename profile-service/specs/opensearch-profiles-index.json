@@ -1,0 +1,38 @@
+{
+  "index_patterns": ["profiles-*"],
+  "template": {
+    "settings": {
+      "analysis": {
+        "analyzer": {
+          "folding": {
+            "type": "custom",
+            "tokenizer": "standard",
+            "filter": ["lowercase", "asciifolding"]
+          }
+        }
+      }
+    },
+    "mappings": {
+      "properties": {
+        "id": { "type": "keyword" },
+        "username": {
+          "type": "text",
+          "analyzer": "folding",
+          "fields": {
+            "keyword": { "type": "keyword" }
+          }
+        },
+        "email": { "type": "keyword" },
+        "displayName": {
+          "type": "search_as_you_type",
+          "analyzer": "folding"
+        },
+        "avatarUrl": { "type": "keyword", "index": false },
+        "status": { "type": "keyword" },
+        "version": { "type": "integer" },
+        "createdAt": { "type": "date" },
+        "updatedAt": { "type": "date" }
+      }
+    }
+  }
+}
