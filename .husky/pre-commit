@@ -1,0 +1,13 @@
+echo "🔍 Backend Validation Team — pre-commit pipeline"
+cd profile-service || exit 1
+
+echo "→ lint-staged (ESLint)"
+npx lint-staged || exit 1
+
+echo "→ build (TypeScript)"
+npm run build || exit 1
+
+echo "→ test:unit (domain + use cases)"
+npm run test:unit || exit 1
+
+echo "✅ Pre-commit validation passed"
