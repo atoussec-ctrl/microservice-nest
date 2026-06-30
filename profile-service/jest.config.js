@@ -19,16 +19,20 @@ module.exports = {
     '^@presentation/(.*)$': '<rootDir>/src/presentation/$1',
   },
   collectCoverageFrom: [
-    'src/domain/**/*.ts',
-    'src/application/**/*.ts',
+    'src/**/*.ts',
+    '!src/main.ts',
     '!src/**/*.module.ts',
-    '!src/**/index.ts',
+    '!src/profile.tokens.ts',
+    '!src/infrastructure/persistence/prisma.service.ts',
+    '!src/presentation/graphql/profile.types.ts',
   ],
   coverageDirectory: 'coverage',
   coverageThreshold: {
     global: {
       lines: 90,
       functions: 90,
+      statements: 90,
+      branches: 80,
     },
   },
   projects: [
