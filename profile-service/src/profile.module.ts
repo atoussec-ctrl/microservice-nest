@@ -17,6 +17,7 @@ import {
 import { OutboxPollerService } from './infrastructure/messaging/outbox-poller.service';
 import { ProfileIndexConsumer } from './infrastructure/messaging/profile-index.consumer';
 import { SnsEventPublisher } from './infrastructure/messaging/sns-event.publisher';
+import { SqsProfileIndexConsumerService } from './infrastructure/messaging/sqs-profile-index.consumer.service';
 import {
   PrismaOutboxRepository,
   PrismaUserProfileRepository,
@@ -49,6 +50,7 @@ export {
     ProfileResolver,
     OutboxPollerService,
     ProfileIndexConsumer,
+    SqsProfileIndexConsumerService,
     {
       provide: CLOCK,
       useClass: SystemClock,
@@ -118,6 +120,7 @@ export {
     GetProfileByIdUseCase,
     SearchProfilesUseCase,
     ProfileIndexConsumer,
+    SqsProfileIndexConsumerService,
   ],
 })
 export class ProfileModule {}
