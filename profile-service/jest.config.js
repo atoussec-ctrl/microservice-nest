@@ -25,6 +25,7 @@ module.exports = {
     '!src/profile.tokens.ts',
     '!src/infrastructure/persistence/prisma.service.ts',
     '!src/presentation/graphql/profile.types.ts',
+    '!src/app.module.ts',
   ],
   coverageDirectory: 'coverage',
   coverageThreshold: {

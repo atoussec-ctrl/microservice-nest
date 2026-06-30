@@ -1,5 +1,5 @@
 import { Args, ID, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { DomainError } from '../../domain/errors/domain.errors';
+import { ProfileNotFoundError } from '../../domain/errors/domain.errors';
 import { ProfileStatus } from '../../domain/enums/profile.enums';
 import { CreateProfileUseCase } from '../../application/use-cases/create-profile.use-case';
 import { UpdateProfileUseCase } from '../../application/use-cases/update-profile.use-case';
@@ -30,7 +30,7 @@ export class ProfileResolver {
       const profile = await this.getProfileByIdUseCase.execute(id);
       return toProfileType(profile);
     } catch (error) {
-      if (error instanceof DomainError) {
+      if (error instanceof ProfileNotFoundError) {
         return null;
       }
       throw error;
