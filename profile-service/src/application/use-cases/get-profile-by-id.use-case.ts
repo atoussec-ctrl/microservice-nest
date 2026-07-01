@@ -7,7 +7,7 @@ export class GetProfileByIdUseCase {
 
   async execute(id: string): Promise<UserProfile> {
     const profile = await this.repository.findById(id);
-    if (!profile) {
+    if (!profile || profile.isDeleted()) {
       throw new ProfileNotFoundError(id);
     }
     return profile;

@@ -4,6 +4,7 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { GraphQLFormattedError } from 'graphql';
 import { ProfileModule } from './profile.module';
+import { HealthModule } from './health/health.module';
 import { DomainExceptionFilter } from './presentation/graphql/domain-exception.filter';
 
 @Module({
@@ -23,6 +24,7 @@ import { DomainExceptionFilter } from './presentation/graphql/domain-exception.f
       }),
     }),
     ProfileModule,
+    HealthModule,
   ],
   providers: [
     {

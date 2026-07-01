@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: profile
       POSTGRES_DB: profile_service
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -20,6 +20,19 @@ services:
       - "9200:9200"
     volumes:
       - opensearch_data:/usr/share/opensearch/data
+
+  localstack:
+    image: localstack/localstack:4.4.0
+    environment:
+      SERVICES: sns,sqs
+      DEBUG: 0
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+    ports:
+      - "4567:4566"
+    volumes:
+      - ./scripts/localstack-init.sh:/etc/localstack/init/ready.d/init.sh
 
 volumes:
   postgres_data:

@@ -7,7 +7,7 @@ import {
   OutboxRepository,
   UserProfileRepository,
 } from '../../domain/ports/repositories.port';
-import { toDomainProfile, toPrismaStatus } from './profile.mapper';
+import { toDomainProfile, toPersistedEmail, toPersistedUsername, toPrismaStatus } from './profile.mapper';
 import { PrismaService } from './prisma.service';
 
 @Injectable()
@@ -20,8 +20,8 @@ export class PrismaUserProfileRepository implements UserProfileRepository {
         where: { id: profile.id },
         create: {
           id: profile.id,
-          username: profile.username.toString(),
-          email: profile.email.toString(),
+          username: toPersistedUsername(profile),
+          email: toPersistedEmail(profile),
           displayName: profile.displayName.toString(),
           avatarUrl: profile.avatarUrl,
           status: toPrismaStatus(profile.status),
@@ -35,6 +35,8 @@ export class PrismaUserProfileRepository implements UserProfileRepository {
           status: toPrismaStatus(profile.status),
           version: profile.version,
           updatedAt: profile.updatedAt,
+          username: toPersistedUsername(profile),
+          email: toPersistedEmail(profile),
         },
       });
 
@@ -59,12 +61,16 @@ export class PrismaUserProfileRepository implements UserProfileRepository {
   }
 
   async existsByUsername(username: string): Promise<boolean> {
-    const count = await this.prisma.userProfile.count({ where: { username } });
+    const count = await this.prisma.userProfile.count({
+      where: { username, status: { not: 'INACTIVE' } },
+    });
     return count > 0;
   }
 
   async existsByEmail(email: string): Promise<boolean> {
-    const count = await this.prisma.userProfile.count({ where: { email } });
+    const count = await this.prisma.userProfile.count({
+      where: { email, status: { not: 'INACTIVE' } },
+    });
     return count > 0;
   }
 }

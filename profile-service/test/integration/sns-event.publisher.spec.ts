@@ -54,6 +54,14 @@ describe('SnsEventPublisher', () => {
     expect(sendMock).toHaveBeenCalled();
     delete process.env.AWS_ENDPOINT;
   });
+
+  it('should_default_topic_arn_to_empty_string_when_env_unset', async () => {
+    delete process.env.SNS_TOPIC_ARN;
+    const publisher = new SnsEventPublisher();
+    await publisher.publish(event);
+    const command = sendMock.mock.calls[0][0];
+    expect(command.input.TopicArn).toBe('');
+  });
 });
 
 describe('InMemoryEventPublisher', () => {

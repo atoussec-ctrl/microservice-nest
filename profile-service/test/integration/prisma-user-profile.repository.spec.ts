@@ -83,6 +83,9 @@ describe('PrismaUserProfileRepository', () => {
     const repo = new PrismaUserProfileRepository(prisma as never);
     expect(await repo.existsByUsername('alice')).toBe(true);
     expect(await repo.existsByEmail('none@example.com')).toBe(false);
+    expect(prisma.userProfile.count).toHaveBeenCalledWith({
+      where: { username: 'alice', status: { not: 'INACTIVE' } },
+    });
   });
 });
 

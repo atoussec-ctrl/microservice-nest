@@ -24,6 +24,7 @@ import {
 } from './infrastructure/persistence/prisma-user-profile.repository';
 import { PrismaService } from './infrastructure/persistence/prisma.service';
 import { OpenSearchProfileRepository } from './infrastructure/search/opensearch-profile.repository';
+import { OpenSearchBootstrapService } from './infrastructure/search/opensearch-bootstrap.service';
 import { ProfileResolver } from './presentation/graphql/profile.resolver';
 import {
   CLOCK,
@@ -51,6 +52,7 @@ export {
     OutboxPollerService,
     ProfileIndexConsumer,
     SqsProfileIndexConsumerService,
+    OpenSearchBootstrapService,
     {
       provide: CLOCK,
       useClass: SystemClock,

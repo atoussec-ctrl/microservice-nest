@@ -19,8 +19,12 @@
     "prisma:push": "prisma db push"
   },
   "lint-staged": {
-    "src/**/*.ts": ["eslint --fix"],
-    "test/**/*.ts": ["eslint --fix"]
+    "src/**/*.ts": [
+      "eslint --fix"
+    ],
+    "test/**/*.ts": [
+      "eslint --fix"
+    ]
   },
   "dependencies": {
     "@aws-sdk/client-sns": "^3.758.0",
@@ -31,12 +35,14 @@
     "@nestjs/graphql": "^12.2.2",
     "@nestjs/platform-express": "^10.4.15",
     "@nestjs/schedule": "^4.1.2",
+    "@nestjs/swagger": "^7.4.2",
     "@opensearch-project/opensearch": "^2.13.0",
     "@prisma/client": "^6.5.0",
     "apollo-server-express": "^3.13.0",
     "graphql": "^16.10.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
