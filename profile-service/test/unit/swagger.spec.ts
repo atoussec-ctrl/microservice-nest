@@ -1,3 +1,4 @@
+import request from 'supertest';
 import { Test } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { setupSwagger } from '../../src/swagger';
@@ -8,6 +9,7 @@ describe('setupSwagger', () => {
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({}).compile();
     app = moduleRef.createNestApplication();
+    setupSwagger(app);
     await app.init();
   });
 
@@ -15,14 +17,19 @@ describe('setupSwagger', () => {
     await app.close();
   });
 
-  it('should_register_docs_route_without_throwing', () => {
-    expect(() => setupSwagger(app)).not.toThrow();
-
-    const server = app.getHttpAdapter().getInstance();
-    const stack = server._router?.stack ?? server.router?.stack ?? [];
-    const hasDocsRoute = stack.some((layer: { regexp?: RegExp }) =>
-      layer.regexp?.test('/api/docs'),
+  it('should_serve_the_openapi_document_at_api_docs_json', async () => {
+    const response = await request(app.getHttpServer()).get(
+      '/api/docs-json',
     );
-    expect(hasDocsRoute).toBe(true);
+
+    expect(response.status).toBe(200);
+    expect(response.body.info.title).toBe('Profile Service API');
+  });
+
+  it('should_serve_the_swagger_ui_at_api_docs', async () => {
+    const response = await request(app.getHttpServer()).get('/api/docs');
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('swagger-ui');
   });
 });

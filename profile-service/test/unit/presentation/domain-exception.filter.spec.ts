@@ -3,6 +3,7 @@ import { GraphQLError } from 'graphql';
 import { DomainExceptionFilter } from '../../../src/presentation/graphql/domain-exception.filter';
 import {
   EmailAlreadyTakenError,
+  ForbiddenProfileAccessError,
   InvalidUsernameError,
   ProfileAlreadyDeletedError,
   ProfileNotFoundError,
@@ -51,6 +52,12 @@ describe('DomainExceptionFilter', () => {
     const result = filter.catch(new VersionConflictError(1, 2), host);
     expect(result.extensions.code).toBe('PRECONDITION_FAILED');
     expect(result.extensions.httpStatus).toBe(412);
+  });
+
+  it('should_map_forbidden_to_FORBIDDEN_403', () => {
+    const result = filter.catch(new ForbiddenProfileAccessError('p1'), host);
+    expect(result.extensions.code).toBe('FORBIDDEN');
+    expect(result.extensions.httpStatus).toBe(403);
   });
 
   it('should_preserve_original_message', () => {

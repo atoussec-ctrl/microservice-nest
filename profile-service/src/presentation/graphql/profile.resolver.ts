@@ -1,5 +1,9 @@
+import { UseGuards } from '@nestjs/common';
 import { Args, ID, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { ProfileNotFoundError } from '../../domain/errors/domain.errors';
+import {
+  ForbiddenProfileAccessError,
+  ProfileNotFoundError,
+} from '../../domain/errors/domain.errors';
 import { ProfileStatus } from '../../domain/enums/profile.enums';
 import { CreateProfileUseCase } from '../../application/use-cases/create-profile.use-case';
 import { UpdateProfileUseCase } from '../../application/use-cases/update-profile.use-case';
@@ -8,11 +12,14 @@ import { GetProfileByIdUseCase } from '../../application/use-cases/get-profile-b
 import { SearchProfilesUseCase } from '../../application/use-cases/search-profiles.use-case';
 import {
   CreateProfileInput,
+  CreateProfileResultType,
   ProfileSearchResultType,
   ProfileType,
   UpdateProfileInput,
 } from './profile.types';
 import { hitToProfileType, toProfileType } from './profile.mapper';
+import { CurrentUser } from './current-user.decorator';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Resolver(() => ProfileType)
 export class ProfileResolver {
@@ -51,26 +58,37 @@ export class ProfileResolver {
     };
   }
 
-  @Mutation(() => ProfileType)
+  @Mutation(() => CreateProfileResultType)
   async createProfile(
     @Args('input') input: CreateProfileInput,
-  ): Promise<ProfileType> {
-    const profile = await this.createProfileUseCase.execute(input);
-    return toProfileType(profile);
+  ): Promise<CreateProfileResultType> {
+    const { profile, accessToken } =
+      await this.createProfileUseCase.execute(input);
+    return { profile: toProfileType(profile), accessToken };
   }
 
+  @UseGuards(JwtAuthGuard)
   @Mutation(() => ProfileType)
   async updateProfile(
     @Args('input') input: UpdateProfileInput,
+    @CurrentUser() currentUserId: string,
   ): Promise<ProfileType> {
+    if (currentUserId !== input.id) {
+      throw new ForbiddenProfileAccessError(input.id);
+    }
     const profile = await this.updateProfileUseCase.execute(input);
     return toProfileType(profile);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Mutation(() => Boolean)
   async deleteProfile(
     @Args('id', { type: () => ID }) id: string,
+    @CurrentUser() currentUserId: string,
   ): Promise<boolean> {
+    if (currentUserId !== id) {
+      throw new ForbiddenProfileAccessError(id);
+    }
     return this.deleteProfileUseCase.execute(id);
   }
 }

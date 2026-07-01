@@ -6,6 +6,7 @@ import { GraphQLFormattedError } from 'graphql';
 import { ProfileModule } from './profile.module';
 import { HealthModule } from './health/health.module';
 import { DomainExceptionFilter } from './presentation/graphql/domain-exception.filter';
+import { isIntrospectionEnabled } from './graphql.config';
 
 @Module({
   imports: [
@@ -13,6 +14,8 @@ import { DomainExceptionFilter } from './presentation/graphql/domain-exception.f
       driver: ApolloDriver,
       autoSchemaFile: true,
       sortSchema: true,
+      introspection: isIntrospectionEnabled(process.env.NODE_ENV),
+      playground: isIntrospectionEnabled(process.env.NODE_ENV),
       formatError: (formattedError: GraphQLFormattedError) => ({
         message: formattedError.message,
         path: formattedError.path,

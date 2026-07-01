@@ -4,10 +4,14 @@ import { UpdateProfileUseCase } from '../../../src/application/use-cases/update-
 import { DeleteProfileUseCase } from '../../../src/application/use-cases/delete-profile.use-case';
 import { GetProfileByIdUseCase } from '../../../src/application/use-cases/get-profile-by-id.use-case';
 import { SearchProfilesUseCase } from '../../../src/application/use-cases/search-profiles.use-case';
-import { ProfileNotFoundError } from '../../../src/domain/errors/domain.errors';
+import {
+  ForbiddenProfileAccessError,
+  ProfileNotFoundError,
+} from '../../../src/domain/errors/domain.errors';
 import { ProfileStatus } from '../../../src/domain/enums/profile.enums';
 import { FakeClock } from '../../support/fake-clock';
 import { FakeIdGenerator } from '../../support/fake-id-generator';
+import { FakeTokenIssuer } from '../../support/fake-token-issuer';
 import {
   buildProfile,
   InMemoryUserProfileRepository,
@@ -28,7 +32,12 @@ describe('ProfileResolver', () => {
     searchIndex = new InMemoryOpenSearchIndex();
     const searchRepo = new InMemoryProfileSearchRepository(searchIndex);
     resolver = new ProfileResolver(
-      new CreateProfileUseCase(repo, clock, new FakeIdGenerator(['p-new'])),
+      new CreateProfileUseCase(
+        repo,
+        clock,
+        new FakeIdGenerator(['p-new']),
+        new FakeTokenIssuer(),
+      ),
       new UpdateProfileUseCase(repo, clock),
       new DeleteProfileUseCase(repo, clock),
       new GetProfileByIdUseCase(repo),
@@ -36,13 +45,14 @@ describe('ProfileResolver', () => {
     );
   });
 
-  it('should_create_profile', async () => {
-    const created = await resolver.createProfile({
+  it('should_create_profile_and_return_an_access_token', async () => {
+    const result = await resolver.createProfile({
       username: 'newuser',
       email: 'new@example.com',
       displayName: 'New User',
     });
-    expect(created.id).toBe('p-new');
+    expect(result.profile.id).toBe('p-new');
+    expect(result.accessToken).toBe('fake-token-for-p-new');
   });
 
   it('should_return_profile_by_id', async () => {
@@ -70,25 +80,45 @@ describe('ProfileResolver', () => {
     await expect(r.profile('p1')).rejects.toThrow('infra failure');
   });
 
-  it('should_update_profile', async () => {
+  it('should_update_profile_when_the_caller_owns_it', async () => {
     repo.seed(buildProfile({ id: 'p1', version: 1 }));
-    const updated = await resolver.updateProfile({
-      id: 'p1',
-      version: 1,
-      displayName: 'Updated',
-      status: ProfileStatus.SUSPENDED,
-    });
+    const updated = await resolver.updateProfile(
+      {
+        id: 'p1',
+        version: 1,
+        displayName: 'Updated',
+        status: ProfileStatus.SUSPENDED,
+      },
+      'p1',
+    );
     expect(updated.version).toBe(2);
     expect(updated.displayName).toBe('Updated');
   });
 
-  it('should_delete_profile', async () => {
+  it('should_reject_update_when_the_caller_does_not_own_the_profile', async () => {
+    repo.seed(buildProfile({ id: 'p1', version: 1 }));
+    await expect(
+      resolver.updateProfile(
+        { id: 'p1', version: 1, displayName: 'Hijacked' },
+        'someone-else',
+      ),
+    ).rejects.toThrow(ForbiddenProfileAccessError);
+  });
+
+  it('should_delete_profile_when_the_caller_owns_it', async () => {
     repo.seed(buildProfile({ id: 'p1' }));
-    expect(await resolver.deleteProfile('p1')).toBe(true);
+    expect(await resolver.deleteProfile('p1', 'p1')).toBe(true);
+  });
+
+  it('should_reject_delete_when_the_caller_does_not_own_the_profile', async () => {
+    repo.seed(buildProfile({ id: 'p1' }));
+    await expect(resolver.deleteProfile('p1', 'someone-else')).rejects.toThrow(
+      ForbiddenProfileAccessError,
+    );
   });
 
   it('should_propagate_not_found_on_delete', async () => {
-    await expect(resolver.deleteProfile('missing')).rejects.toThrow(
+    await expect(resolver.deleteProfile('missing', 'missing')).rejects.toThrow(
       ProfileNotFoundError,
     );
   });

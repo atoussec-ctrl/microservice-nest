@@ -3,6 +3,7 @@ export enum DomainErrorCode {
   CONFLICT = 'CONFLICT',
   NOT_FOUND = 'NOT_FOUND',
   VERSION_CONFLICT = 'VERSION_CONFLICT',
+  FORBIDDEN = 'FORBIDDEN',
 }
 
 export abstract class DomainError extends Error {
@@ -67,5 +68,12 @@ export class ProfileAlreadyDeletedError extends DomainError {
   readonly code = DomainErrorCode.CONFLICT;
   constructor(id: string) {
     super(`Profile already deleted: ${id}`);
+  }
+}
+
+export class ForbiddenProfileAccessError extends DomainError {
+  readonly code = DomainErrorCode.FORBIDDEN;
+  constructor(id: string) {
+    super(`Not authorized to modify profile: ${id}`);
   }
 }

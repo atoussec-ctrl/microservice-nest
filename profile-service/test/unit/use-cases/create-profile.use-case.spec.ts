@@ -5,6 +5,7 @@ import {
 } from '../../../src/domain/errors/domain.errors';
 import { FakeClock } from '../../support/fake-clock';
 import { FakeIdGenerator } from '../../support/fake-id-generator';
+import { FakeTokenIssuer } from '../../support/fake-token-issuer';
 import {
   buildProfile,
   InMemoryUserProfileRepository,
@@ -12,6 +13,7 @@ import {
 
 describe('CreateProfileUseCase', () => {
   const clock = new FakeClock();
+  const tokenIssuer = new FakeTokenIssuer();
   let idGenerator = new FakeIdGenerator(['new-profile-id']);
   let repository: InMemoryUserProfileRepository;
   let useCase: CreateProfileUseCase;
@@ -19,11 +21,16 @@ describe('CreateProfileUseCase', () => {
   beforeEach(() => {
     repository = new InMemoryUserProfileRepository();
     idGenerator = new FakeIdGenerator(['new-profile-id']);
-    useCase = new CreateProfileUseCase(repository, clock, idGenerator);
+    useCase = new CreateProfileUseCase(
+      repository,
+      clock,
+      idGenerator,
+      tokenIssuer,
+    );
   });
 
   it('should_create_profile_and_persist_outbox_event', async () => {
-    const profile = await useCase.execute({
+    const { profile } = await useCase.execute({
       username: 'newuser',
       email: 'new@example.com',
       displayName: 'New User',
@@ -35,6 +42,17 @@ describe('CreateProfileUseCase', () => {
     expect(outbox).toHaveLength(1);
     expect(outbox[0].type).toBe('PROFILE_CREATED');
     expect(outbox[0].aggregateId).toBe('new-profile-id');
+  });
+
+  it('should_issue_an_access_token_scoped_to_the_new_profile', async () => {
+    const { profile, accessToken } = await useCase.execute({
+      username: 'newuser',
+      email: 'new@example.com',
+      displayName: 'New User',
+    });
+
+    expect(accessToken).toBe('fake-token-for-new-profile-id');
+    expect(profile.id).toBe('new-profile-id');
   });
 
   it('should_throw_when_username_already_taken', async () => {
@@ -70,9 +88,14 @@ describe('CreateProfileUseCase', () => {
     deleted.delete(clock.now());
     repository.seed(deleted);
     idGenerator = new FakeIdGenerator(['reused-profile-id']);
-    useCase = new CreateProfileUseCase(repository, clock, idGenerator);
+    useCase = new CreateProfileUseCase(
+      repository,
+      clock,
+      idGenerator,
+      tokenIssuer,
+    );
 
-    const profile = await useCase.execute({
+    const { profile } = await useCase.execute({
       username: 'reuse_me',
       email: 'new@example.com',
       displayName: 'Reused Username',

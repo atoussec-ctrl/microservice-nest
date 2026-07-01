@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
+import { JwtModule, JwtService } from '@nestjs/jwt';
 import { Client } from '@opensearch-project/opensearch';
 import { SystemClock, UuidIdGenerator } from './application/adapters/system-clock';
 import { CreateProfileUseCase } from './application/use-cases/create-profile.use-case';
@@ -7,13 +8,15 @@ import { UpdateProfileUseCase } from './application/use-cases/update-profile.use
 import { DeleteProfileUseCase } from './application/use-cases/delete-profile.use-case';
 import { GetProfileByIdUseCase } from './application/use-cases/get-profile-by-id.use-case';
 import { SearchProfilesUseCase } from './application/use-cases/search-profiles.use-case';
-import { Clock, IdGenerator } from './application/ports/application.port';
+import { Clock, IdGenerator, TokenIssuer } from './application/ports/application.port';
 import {
   EventPublisher,
   OutboxRepository,
   ProfileSearchRepository,
   UserProfileRepository,
 } from './domain/ports/repositories.port';
+import { JwtTokenIssuer } from './infrastructure/auth/jwt-token.issuer';
+import { buildJwtModuleOptions } from './infrastructure/auth/jwt.config';
 import { OutboxPollerService } from './infrastructure/messaging/outbox-poller.service';
 import { ProfileIndexConsumer } from './infrastructure/messaging/profile-index.consumer';
 import { SnsEventPublisher } from './infrastructure/messaging/sns-event.publisher';
@@ -25,6 +28,7 @@ import {
 import { PrismaService } from './infrastructure/persistence/prisma.service';
 import { OpenSearchProfileRepository } from './infrastructure/search/opensearch-profile.repository';
 import { OpenSearchBootstrapService } from './infrastructure/search/opensearch-bootstrap.service';
+import { JwtAuthGuard } from './presentation/graphql/jwt-auth.guard';
 import { ProfileResolver } from './presentation/graphql/profile.resolver';
 import {
   CLOCK,
@@ -32,6 +36,7 @@ import {
   ID_GENERATOR,
   OUTBOX_REPOSITORY,
   PROFILE_SEARCH_REPOSITORY,
+  TOKEN_ISSUER,
   USER_PROFILE_REPOSITORY,
 } from './profile.tokens';
 
@@ -41,14 +46,19 @@ export {
   ID_GENERATOR,
   OUTBOX_REPOSITORY,
   PROFILE_SEARCH_REPOSITORY,
+  TOKEN_ISSUER,
   USER_PROFILE_REPOSITORY,
 } from './profile.tokens';
 
 @Module({
-  imports: [ScheduleModule.forRoot()],
+  imports: [
+    ScheduleModule.forRoot(),
+    JwtModule.register(buildJwtModuleOptions()),
+  ],
   providers: [
     PrismaService,
     ProfileResolver,
+    JwtAuthGuard,
     OutboxPollerService,
     ProfileIndexConsumer,
     SqsProfileIndexConsumerService,
@@ -60,6 +70,10 @@ export {
     {
       provide: ID_GENERATOR,
       useClass: UuidIdGenerator,
+    },
+    {
+      provide: TOKEN_ISSUER,
+      useClass: JwtTokenIssuer,
     },
     {
       provide: USER_PROFILE_REPOSITORY,
@@ -87,8 +101,9 @@ export {
         repo: UserProfileRepository,
         clock: Clock,
         idGen: IdGenerator,
-      ) => new CreateProfileUseCase(repo, clock, idGen),
-      inject: [USER_PROFILE_REPOSITORY, CLOCK, ID_GENERATOR],
+        tokenIssuer: TokenIssuer,
+      ) => new CreateProfileUseCase(repo, clock, idGen, tokenIssuer),
+      inject: [USER_PROFILE_REPOSITORY, CLOCK, ID_GENERATOR, TOKEN_ISSUER],
     },
     {
       provide: UpdateProfileUseCase,
@@ -134,6 +149,7 @@ export type ProfileModuleOverrides = {
   eventPublisher?: EventPublisher;
   clock?: Clock;
   idGenerator?: IdGenerator;
+  tokenIssuer?: TokenIssuer;
 };
 
 export function createProfileModuleProviders(
@@ -149,6 +165,8 @@ export function createProfileModuleProviders(
   const outboxRepository =
     overrides.outboxRepository ?? new PrismaOutboxRepository(new PrismaService());
   const eventPublisher = overrides.eventPublisher ?? new SnsEventPublisher();
+  const tokenIssuer =
+    overrides.tokenIssuer ?? new JwtTokenIssuer(new JwtService(buildJwtModuleOptions()));
 
   return {
     clock,
@@ -157,10 +175,12 @@ export function createProfileModuleProviders(
     profileSearchRepository,
     outboxRepository,
     eventPublisher,
+    tokenIssuer,
     createProfileUseCase: new CreateProfileUseCase(
       userProfileRepository,
       clock,
       idGenerator,
+      tokenIssuer,
     ),
     updateProfileUseCase: new UpdateProfileUseCase(userProfileRepository, clock),
     deleteProfileUseCase: new DeleteProfileUseCase(userProfileRepository, clock),

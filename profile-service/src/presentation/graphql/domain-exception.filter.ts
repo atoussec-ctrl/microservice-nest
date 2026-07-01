@@ -19,6 +19,7 @@ const ERROR_MAPPINGS: Record<DomainErrorCode, GraphQLErrorMapping> = {
     code: 'PRECONDITION_FAILED',
     httpStatus: 412,
   },
+  [DomainErrorCode.FORBIDDEN]: { code: 'FORBIDDEN', httpStatus: 403 },
 };
 
 @Catch(DomainError)

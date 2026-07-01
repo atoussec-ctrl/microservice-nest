@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "microservices-ts-collection",
     "name": "Microservices TS",
-    "description": "Complete API collection for the **Profile Service** (GraphQL + REST health) and **Threat Triage Engine** (REST read API).\n\n## Prerequisites\n\n1. Start infrastructure with `docker compose up -d` in each project.\n2. Import `environment.json` and select **Microservices TS — Local**.\n3. Profile Service: `npm run start:dev` in `profile-service/` (port **3000**).\n4. Threat Triage: `npm run start:dev` in `microservice-cyberalert/` (port **3001**).\n\n## Swagger (OpenAPI)\n\n| Service | URL |\n|---------|-----|\n| Profile Service | `GET {{profile_base_url}}/api/docs` |\n| Threat Triage | `GET {{cyberalert_base_url}}/api/docs` |\n\n## GraphQL error codes\n\n| `extensions.code` | Meaning |\n|-------------------|--------|\n| `BAD_USER_INPUT` | Validation failed |\n| `CONFLICT` | Username or email taken |\n| `NOT_FOUND` | Profile not found |\n| `PRECONDITION_FAILED` | Version conflict on update |",
+    "description": "Complete API collection for the **Profile Service** (GraphQL + REST health) and **Threat Triage Engine** (REST read API).\n\n## Prerequisites\n\n1. Start infrastructure with `docker compose up -d` in each project.\n2. Import `environment.json` and select **Microservices TS — Local**.\n3. Profile Service: `npm run start:dev` in `profile-service/` (port **3000**).\n4. Threat Triage: `npm run start:dev` in `microservice-cyberalert/` (port **3001**).\n\n## Swagger (OpenAPI)\n\n| Service | URL |\n|---------|-----|\n| Profile Service | `GET {{profile_base_url}}/api/docs` |\n| Threat Triage | `GET {{cyberalert_base_url}}/api/docs` |\n\n## Authentication (Profile Service)\n\n`createProfile` returns an `accessToken` (JWT, HS256, 1h expiry, `sub` = the new profile's id) alongside the created `profile`. The **Create Profile** request saves it to `{{access_token}}` automatically. `updateProfile` and `deleteProfile` require `Authorization: Bearer {{access_token}}` and only succeed when the token's subject matches the target profile — anyone else gets `FORBIDDEN`.\n\n## GraphQL error codes\n\n| `extensions.code` | HTTP | Meaning |\n|-------------------|------|--------|\n| `BAD_USER_INPUT` | 400 | Validation failed |\n| `CONFLICT` | 409 | Username or email taken |\n| `NOT_FOUND` | 404 | Profile not found |\n| `PRECONDITION_FAILED` | 412 | Version conflict on update |\n| `UNAUTHENTICATED` | 401 | Missing/invalid bearer token on `updateProfile`/`deleteProfile` |\n| `FORBIDDEN` | 403 | Token does not belong to the target profile |",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -69,10 +69,11 @@
                   "script": {
                     "exec": [
                       "const json = pm.response.json();",
-                      "const profile = json.data?.createProfile;",
-                      "if (profile?.id) {",
-                      "  pm.environment.set('profile_id', profile.id);",
-                      "  pm.environment.set('profile_version', String(profile.version));",
+                      "const result = json.data?.createProfile;",
+                      "if (result?.profile?.id) {",
+                      "  pm.environment.set('profile_id', result.profile.id);",
+                      "  pm.environment.set('profile_version', String(result.profile.version));",
+                      "  pm.environment.set('access_token', result.accessToken);",
                       "}"
                     ],
                     "type": "text/javascript"
@@ -84,10 +85,10 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"query\": \"mutation CreateProfile($input: CreateProfileInput!) { createProfile(input: $input) { id username email displayName status version } }\",\n  \"variables\": {\n    \"input\": {\n      \"username\": \"postman_user\",\n      \"email\": \"postman@example.com\",\n      \"displayName\": \"Postman User\"\n    }\n  }\n}"
+                  "raw": "{\n  \"query\": \"mutation CreateProfile($input: CreateProfileInput!) { createProfile(input: $input) { profile { id username email displayName status version } accessToken } }\",\n  \"variables\": {\n    \"input\": {\n      \"username\": \"postman_user\",\n      \"email\": \"postman@example.com\",\n      \"displayName\": \"Postman User\"\n    }\n  }\n}"
                 },
                 "url": "{{profile_base_url}}/graphql",
-                "description": "Creates a profile (username 3–30 alphanumeric/underscore). Saves `profile_id` and `profile_version` to the environment."
+                "description": "Creates a profile (username 3–30 alphanumeric/underscore) and issues a JWT `accessToken` scoped to it. Saves `profile_id`, `profile_version` and `access_token` to the environment."
               },
               "response": []
             },
@@ -107,13 +108,16 @@
               ],
               "request": {
                 "method": "POST",
-                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{access_token}}" }
+                ],
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"query\": \"mutation UpdateProfile($input: UpdateProfileInput!) { updateProfile(input: $input) { id displayName version status } }\",\n  \"variables\": {\n    \"input\": {\n      \"id\": \"{{profile_id}}\",\n      \"version\": {{profile_version}},\n      \"displayName\": \"Postman Updated\"\n    }\n  }\n}"
                 },
                 "url": "{{profile_base_url}}/graphql",
-                "description": "Optimistic locking via `version`. Returns `PRECONDITION_FAILED` on stale version."
+                "description": "Requires `Authorization: Bearer {{access_token}}` from the same profile (401 `UNAUTHENTICATED` without it, 403 `FORBIDDEN` with someone else's token). Optimistic locking via `version` (412 `PRECONDITION_FAILED` on stale version)."
               },
               "response": []
             },
@@ -121,13 +125,16 @@
               "name": "Delete Profile",
               "request": {
                 "method": "POST",
-                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{access_token}}" }
+                ],
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"query\": \"mutation DeleteProfile($id: ID!) { deleteProfile(id: $id) }\",\n  \"variables\": { \"id\": \"{{profile_id}}\" }\n}"
                 },
                 "url": "{{profile_base_url}}/graphql",
-                "description": "Soft-deletes the profile (status INACTIVE). Subsequent `profile(id)` returns null; username can be reused."
+                "description": "Requires `Authorization: Bearer {{access_token}}` from the same profile. Soft-deletes the profile (status INACTIVE). Subsequent `profile(id)` returns null; username can be reused."
               },
               "response": []
             }
@@ -157,10 +164,41 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"query\": \"mutation { createProfile(input: { username: \\\"a\\\", email: \\\"x@example.com\\\", displayName: \\\"X\\\" }) { id } }\"\n}"
+                  "raw": "{\n  \"query\": \"mutation { createProfile(input: { username: \\\"a\\\", email: \\\"x@example.com\\\", displayName: \\\"X\\\" }) { profile { id } accessToken } }\"\n}"
                 },
                 "url": "{{profile_base_url}}/graphql",
                 "description": "Expect `extensions.code: BAD_USER_INPUT`."
+              },
+              "response": []
+            },
+            {
+              "name": "Update — Unauthenticated (no token)",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"query\": \"mutation { updateProfile(input: { id: \\\"{{profile_id}}\\\", version: {{profile_version}}, displayName: \\\"No token\\\" }) { id } }\"\n}"
+                },
+                "url": "{{profile_base_url}}/graphql",
+                "description": "No `Authorization` header sent. Expect `extensions.code: UNAUTHENTICATED`."
+              },
+              "response": []
+            },
+            {
+              "name": "Update — Forbidden (wrong owner)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{access_token}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"query\": \"mutation { updateProfile(input: { id: \\\"not-my-profile-id\\\", version: 1, displayName: \\\"Hijack attempt\\\" }) { id } }\"\n}"
+                },
+                "url": "{{profile_base_url}}/graphql",
+                "description": "Valid token, but for a *different* profile than the one being updated. Expect `extensions.code: FORBIDDEN` (403) — run 'Create Profile' twice and swap `profile_id` to see this against a real target."
               },
               "response": []
             }
