@@ -42,7 +42,7 @@ export class InMemoryUserProfileRepository implements UserProfileRepository {
 
   async existsByUsername(username: string): Promise<boolean> {
     for (const profile of this.profiles.values()) {
-      if (profile.username.toString() === username) {
+      if (profile.username.toString() === username && !profile.isDeleted()) {
         return true;
       }
     }
@@ -51,7 +51,7 @@ export class InMemoryUserProfileRepository implements UserProfileRepository {
 
   async existsByEmail(email: string): Promise<boolean> {
     for (const profile of this.profiles.values()) {
-      if (profile.email.toString() === email) {
+      if (profile.email.toString() === email && !profile.isDeleted()) {
         return true;
       }
     }

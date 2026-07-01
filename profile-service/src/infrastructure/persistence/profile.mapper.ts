@@ -33,3 +33,19 @@ export function toDomainProfile(record: {
 export function toPrismaStatus(status: ProfileStatus): PrismaProfileStatus {
   return status as PrismaProfileStatus;
 }
+
+/** Frees unique username/email slots after soft-delete while keeping the row for audit. */
+export function toPersistedUsername(profile: UserProfile): string {
+  if (!profile.isDeleted()) {
+    return profile.username.toString();
+  }
+  const suffix = profile.id.replace(/-/g, '').slice(0, 22);
+  return `del_${suffix}`;
+}
+
+export function toPersistedEmail(profile: UserProfile): string {
+  if (!profile.isDeleted()) {
+    return profile.email.toString();
+  }
+  return `deleted+${profile.id}@released.invalid`;
+}

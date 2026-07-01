@@ -25,4 +25,12 @@ describe('GetProfileByIdUseCase', () => {
       ProfileNotFoundError,
     );
   });
+
+  it('should_throw_when_profile_is_soft_deleted', async () => {
+    const profile = buildProfile({ id: 'p1' });
+    profile.delete(new Date('2024-01-02T00:00:00.000Z'));
+    repository.seed(profile);
+
+    await expect(useCase.execute('p1')).rejects.toThrow(ProfileNotFoundError);
+  });
 });

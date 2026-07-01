@@ -1,9 +1,12 @@
 import {
   toDomainProfile,
+  toPersistedEmail,
+  toPersistedUsername,
   toPrismaStatus,
 } from '../../../src/infrastructure/persistence/profile.mapper';
 import { ProfileStatus as PrismaProfileStatus } from '@prisma/client';
 import { ProfileStatus } from '../../../src/domain/enums/profile.enums';
+import { buildProfile } from '../../support/in-memory-repositories';
 
 describe('persistence profile.mapper', () => {
   it('should_map_active_record_to_domain', () => {
@@ -42,5 +45,13 @@ describe('persistence profile.mapper', () => {
     expect(toPrismaStatus(ProfileStatus.SUSPENDED)).toBe(
       PrismaProfileStatus.SUSPENDED,
     );
+  });
+
+  it('should_release_unique_identifiers_after_soft_delete', () => {
+    const profile = buildProfile({ id: 'p1', username: 'alice', email: 'alice@example.com' });
+    profile.delete(new Date('2024-01-03T00:00:00.000Z'));
+
+    expect(toPersistedUsername(profile)).toMatch(/^del_/);
+    expect(toPersistedEmail(profile)).toBe('deleted+p1@released.invalid');
   });
 });

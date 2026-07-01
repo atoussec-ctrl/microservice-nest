@@ -12,12 +12,13 @@ import {
 
 describe('CreateProfileUseCase', () => {
   const clock = new FakeClock();
-  const idGenerator = new FakeIdGenerator(['new-profile-id']);
+  let idGenerator = new FakeIdGenerator(['new-profile-id']);
   let repository: InMemoryUserProfileRepository;
   let useCase: CreateProfileUseCase;
 
   beforeEach(() => {
     repository = new InMemoryUserProfileRepository();
+    idGenerator = new FakeIdGenerator(['new-profile-id']);
     useCase = new CreateProfileUseCase(repository, clock, idGenerator);
   });
 
@@ -58,5 +59,26 @@ describe('CreateProfileUseCase', () => {
         displayName: 'Other',
       }),
     ).rejects.toThrow(EmailAlreadyTakenError);
+  });
+
+  it('should_allow_username_reuse_after_soft_delete', async () => {
+    const deleted = buildProfile({
+      id: 'old-profile',
+      username: 'reuse_me',
+      email: 'old@example.com',
+    });
+    deleted.delete(clock.now());
+    repository.seed(deleted);
+    idGenerator = new FakeIdGenerator(['reused-profile-id']);
+    useCase = new CreateProfileUseCase(repository, clock, idGenerator);
+
+    const profile = await useCase.execute({
+      username: 'reuse_me',
+      email: 'new@example.com',
+      displayName: 'Reused Username',
+    });
+
+    expect(profile.id).toBe('reused-profile-id');
+    expect(profile.username.toString()).toBe('reuse_me');
   });
 });
