@@ -1,4 +1,4 @@
-import { Clock, IdGenerator } from '../ports/application.port';
+import { Clock, IdGenerator, TokenIssuer } from '../ports/application.port';
 import {
   EmailAlreadyTakenError,
   UsernameAlreadyTakenError,
@@ -16,14 +16,20 @@ export interface CreateProfileInput {
   avatarUrl?: string | null;
 }
 
+export interface CreateProfileResult {
+  profile: UserProfile;
+  accessToken: string;
+}
+
 export class CreateProfileUseCase {
   constructor(
     private readonly repository: UserProfileRepository,
     private readonly clock: Clock,
     private readonly idGenerator: IdGenerator,
+    private readonly tokenIssuer: TokenIssuer,
   ) {}
 
-  async execute(input: CreateProfileInput): Promise<UserProfile> {
+  async execute(input: CreateProfileInput): Promise<CreateProfileResult> {
     const username = Username.create(input.username);
     const email = Email.create(input.email);
     const displayName = DisplayName.create(input.displayName);
@@ -47,6 +53,7 @@ export class CreateProfileUseCase {
 
     const events = profile.pullDomainEvents();
     await this.repository.save(profile, events);
-    return profile;
+
+    return { profile, accessToken: this.tokenIssuer.issueFor(profile.id) };
   }
 }

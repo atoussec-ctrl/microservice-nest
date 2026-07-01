@@ -42,6 +42,15 @@ export class ProfileSearchResultType {
   total!: number;
 }
 
+@ObjectType()
+export class CreateProfileResultType {
+  @Field(() => ProfileType)
+  profile!: ProfileType;
+
+  @Field()
+  accessToken!: string;
+}
+
 @InputType()
 export class CreateProfileInput {
   @Field()

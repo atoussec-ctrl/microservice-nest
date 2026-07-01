@@ -3,15 +3,18 @@ import { INestApplication } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
+import { JwtModule, JwtService } from '@nestjs/jwt';
 import { GraphQLFormattedError } from 'graphql';
 import request from 'supertest';
 import { ProfileResolver } from '../../src/presentation/graphql/profile.resolver';
+import { JwtAuthGuard } from '../../src/presentation/graphql/jwt-auth.guard';
 import { DomainExceptionFilter } from '../../src/presentation/graphql/domain-exception.filter';
 import { CreateProfileUseCase } from '../../src/application/use-cases/create-profile.use-case';
 import { UpdateProfileUseCase } from '../../src/application/use-cases/update-profile.use-case';
 import { DeleteProfileUseCase } from '../../src/application/use-cases/delete-profile.use-case';
 import { GetProfileByIdUseCase } from '../../src/application/use-cases/get-profile-by-id.use-case';
 import { SearchProfilesUseCase } from '../../src/application/use-cases/search-profiles.use-case';
+import { JwtTokenIssuer } from '../../src/infrastructure/auth/jwt-token.issuer';
 import { FakeClock } from '../support/fake-clock';
 import { FakeIdGenerator } from '../support/fake-id-generator';
 import { InMemoryUserProfileRepository } from '../support/in-memory-repositories';
@@ -20,16 +23,24 @@ import {
   InMemoryProfileSearchRepository,
 } from '../../src/infrastructure/search/opensearch-profile.repository';
 
+const JWT_SECRET = 'e2e-errors-secret';
+
 describe('Profile GraphQL error handling (e2e)', () => {
   let app: INestApplication;
   let repo: InMemoryUserProfileRepository;
   const clock = new FakeClock(new Date('2024-06-01T00:00:00.000Z'));
+  const jwtService = new JwtService({ secret: JWT_SECRET });
 
-  async function post(query: string) {
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .send({ query })
-      .expect(200);
+  function tokenFor(profileId: string): string {
+    return jwtService.sign({ sub: profileId });
+  }
+
+  async function post(query: string, token?: string) {
+    const req = request(app.getHttpServer()).post('/graphql');
+    if (token) {
+      req.set('Authorization', `Bearer ${token}`);
+    }
+    const res = await req.send({ query }).expect(200);
     return res.body;
   }
 
@@ -60,13 +71,25 @@ describe('Profile GraphQL error handling (e2e)', () => {
             },
           }),
         }),
+        JwtModule.register({
+          secret: JWT_SECRET,
+          signOptions: { expiresIn: '1h' },
+        }),
       ],
       providers: [
         ProfileResolver,
+        JwtAuthGuard,
         { provide: APP_FILTER, useClass: DomainExceptionFilter },
         {
           provide: CreateProfileUseCase,
-          useValue: new CreateProfileUseCase(repo, clock, idGenerator),
+          useFactory: (jwt: JwtService) =>
+            new CreateProfileUseCase(
+              repo,
+              clock,
+              idGenerator,
+              new JwtTokenIssuer(jwt),
+            ),
+          inject: [JwtService],
         },
         {
           provide: UpdateProfileUseCase,
@@ -102,10 +125,10 @@ describe('Profile GraphQL error handling (e2e)', () => {
           username: "alice"
           email: "alice@example.com"
           displayName: "Alice"
-        }) { id username }
+        }) { profile { id username } accessToken }
       }
     `);
-    expect(body.data.createProfile.username).toBe('alice');
+    expect(body.data.createProfile.profile.username).toBe('alice');
   });
 
   it('should_return_CONFLICT_when_username_taken', async () => {
@@ -115,7 +138,7 @@ describe('Profile GraphQL error handling (e2e)', () => {
           username: "alice"
           email: "another@example.com"
           displayName: "Other"
-        }) { id }
+        }) { profile { id } accessToken }
       }
     `);
     expect(firstErrorCode(body)).toBe('CONFLICT');
@@ -128,34 +151,62 @@ describe('Profile GraphQL error handling (e2e)', () => {
           username: "a"
           email: "valid@example.com"
           displayName: "Valid"
-        }) { id }
+        }) { profile { id } accessToken }
       }
     `);
     expect(firstErrorCode(body)).toBe('BAD_USER_INPUT');
   });
 
-  it('should_return_NOT_FOUND_when_updating_missing_profile', async () => {
+  it('should_return_UNAUTHENTICATED_when_no_token_is_provided_on_update', async () => {
     const body = await post(`
+      mutation {
+        updateProfile(input: { id: "p1", version: 1, displayName: "X" }) { id }
+      }
+    `);
+    expect(body.errors[0].message).toMatch(/bearer token/i);
+  });
+
+  it('should_return_NOT_FOUND_when_updating_missing_profile', async () => {
+    const body = await post(
+      `
       mutation {
         updateProfile(input: { id: "missing", version: 1, displayName: "X" }) { id }
       }
-    `);
+    `,
+      tokenFor('missing'),
+    );
     expect(firstErrorCode(body)).toBe('NOT_FOUND');
   });
 
   it('should_return_PRECONDITION_FAILED_on_version_conflict', async () => {
-    const body = await post(`
+    const body = await post(
+      `
       mutation {
         updateProfile(input: { id: "p1", version: 99, displayName: "X" }) { id }
       }
-    `);
+    `,
+      tokenFor('p1'),
+    );
     expect(firstErrorCode(body)).toBe('PRECONDITION_FAILED');
   });
 
+  it('should_return_FORBIDDEN_when_token_owner_does_not_match_target_profile', async () => {
+    const body = await post(
+      `
+      mutation {
+        updateProfile(input: { id: "p1", version: 1, displayName: "X" }) { id }
+      }
+    `,
+      tokenFor('p2'),
+    );
+    expect(firstErrorCode(body)).toBe('FORBIDDEN');
+  });
+
   it('should_return_NOT_FOUND_when_deleting_missing_profile', async () => {
-    const body = await post(`
-      mutation { deleteProfile(id: "missing") }
-    `);
+    const body = await post(
+      `mutation { deleteProfile(id: "missing") }`,
+      tokenFor('missing'),
+    );
     expect(firstErrorCode(body)).toBe('NOT_FOUND');
   });
 
