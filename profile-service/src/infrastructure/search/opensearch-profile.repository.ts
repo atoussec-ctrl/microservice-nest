@@ -98,6 +98,50 @@ export class OpenSearchProfileRepository implements ProfileSearchRepository {
     }
   }
 
+  async ensureIndex(): Promise<void> {
+    await this.client.indices.putIndexTemplate({
+      name: 'profiles-template',
+      body: {
+        index_patterns: ['profiles-*'],
+        template: {
+          settings: {
+            analysis: {
+              analyzer: {
+                folding: {
+                  type: 'custom',
+                  tokenizer: 'standard',
+                  filter: ['lowercase', 'asciifolding'],
+                },
+              },
+            },
+          },
+          mappings: {
+            properties: {
+              id: { type: 'keyword' },
+              username: {
+                type: 'text',
+                analyzer: 'folding',
+                fields: { keyword: { type: 'keyword' } },
+              },
+              email: { type: 'keyword' },
+              displayName: { type: 'search_as_you_type', analyzer: 'folding' },
+              avatarUrl: { type: 'keyword', index: false },
+              status: { type: 'keyword' },
+              version: { type: 'integer' },
+              createdAt: { type: 'date' },
+              updatedAt: { type: 'date' },
+            },
+          },
+        },
+      },
+    });
+
+    const exists = await this.client.indices.exists({ index: this.index });
+    if (!exists.body) {
+      await this.client.indices.create({ index: this.index });
+    }
+  }
+
   private toHit(source: Record<string, unknown>) {
     return {
       id: String(source.id),
