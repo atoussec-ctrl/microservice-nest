@@ -1,6 +1,7 @@
 import {
   DomainErrorCode,
   EmailAlreadyTakenError,
+  ForbiddenProfileAccessError,
   InvalidDisplayNameError,
   InvalidEmailError,
   InvalidUsernameError,
@@ -41,5 +42,11 @@ describe('Domain errors', () => {
 
   it('should_set_error_name_to_class_name', () => {
     expect(new ProfileNotFoundError('p1').name).toBe('ProfileNotFoundError');
+  });
+
+  it('should_expose_forbidden_code_with_message', () => {
+    const error = new ForbiddenProfileAccessError('p1');
+    expect(error.code).toBe(DomainErrorCode.FORBIDDEN);
+    expect(error.message).toBe('Not authorized to modify profile: p1');
   });
 });
