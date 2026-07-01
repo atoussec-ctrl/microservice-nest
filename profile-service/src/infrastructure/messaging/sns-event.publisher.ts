@@ -7,6 +7,7 @@ import {
   EventPublisher,
   OutboxEventRecord,
 } from '../../domain/ports/repositories.port';
+import { buildAwsClientConfig } from './aws-client.config';
 
 @Injectable()
 export class SnsEventPublisher implements EventPublisher {
@@ -14,11 +15,7 @@ export class SnsEventPublisher implements EventPublisher {
   private readonly topicArn: string;
 
   constructor() {
-    const endpoint = process.env.AWS_ENDPOINT;
-    this.client = new SNSClient({
-      region: process.env.AWS_REGION ?? 'us-east-1',
-      ...(endpoint ? { endpoint } : {}),
-    });
+    this.client = new SNSClient(buildAwsClientConfig());
     this.topicArn = process.env.SNS_TOPIC_ARN ?? '';
   }
 
