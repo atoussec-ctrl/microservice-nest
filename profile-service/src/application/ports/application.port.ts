@@ -5,3 +5,7 @@ export interface Clock {
 export interface IdGenerator {
   generate(): string;
 }
+
+export interface TokenIssuer {
+  issueFor(profileId: string): string;
+}
