@@ -50,4 +50,12 @@ describe('UpdateProfileUseCase', () => {
       useCase.execute({ id: 'p1', version: 1, displayName: 'X' }),
     ).rejects.toThrow(VersionConflictError);
   });
+
+  it('should_rethrow_non_version_conflict_errors_from_update', async () => {
+    repository.seed(buildProfile({ id: 'p1', version: 1 }));
+
+    await expect(
+      useCase.execute({ id: 'p1', version: 1, displayName: '   ' }),
+    ).rejects.toThrow('Display name must be between 1 and 100 characters');
+  });
 });

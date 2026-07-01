@@ -96,6 +96,39 @@ describe('OpenSearchProfileRepository (mocked client)', () => {
     expect(repo).toBeInstanceOf(OpenSearchProfileRepository);
     delete process.env.OPENSEARCH_INDEX;
   });
+
+  function makeIndicesClient(indexExists: boolean) {
+    return {
+      search: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      indices: {
+        putIndexTemplate: jest.fn().mockResolvedValue({}),
+        exists: jest.fn().mockResolvedValue({ body: indexExists }),
+        create: jest.fn().mockResolvedValue({}),
+      },
+    };
+  }
+
+  it('should_create_index_when_it_does_not_exist', async () => {
+    const client = makeIndicesClient(false);
+    const repo = new OpenSearchProfileRepository(client as never, 'profiles-v1');
+
+    await repo.ensureIndex();
+
+    expect(client.indices.putIndexTemplate).toHaveBeenCalledTimes(1);
+    expect(client.indices.exists).toHaveBeenCalledWith({ index: 'profiles-v1' });
+    expect(client.indices.create).toHaveBeenCalledWith({ index: 'profiles-v1' });
+  });
+
+  it('should_not_create_index_when_it_already_exists', async () => {
+    const client = makeIndicesClient(true);
+    const repo = new OpenSearchProfileRepository(client as never, 'profiles-v1');
+
+    await repo.ensureIndex();
+
+    expect(client.indices.create).not.toHaveBeenCalled();
+  });
 });
 
 describe('InMemoryProfileSearchRepository', () => {

@@ -103,4 +103,15 @@ describe('ProfileIndexConsumer', () => {
 
     expect(index.get('profile-1')).toBeUndefined();
   });
+
+  it('should_warn_and_ignore_unknown_event_type', async () => {
+    await consumer.handleMessage({
+      aggregateId: 'profile-1',
+      type: 'PROFILE_RENAMED',
+      version: 1,
+      payload: { ...basePayload, version: 1 },
+    });
+
+    expect(index.get('profile-1')).toBeUndefined();
+  });
 });
